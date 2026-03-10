@@ -48,25 +48,60 @@
 
         // Отобразить список задач
         function renderTasks(tasks) {
-            const ul = document.getElementById('tasks');
-            ul.innerHTML = '';
-            tasks.forEach(task => {
-                const li = document.createElement('li');
-                li.className = 'task';
-                li.innerHTML = `
-                    <div class="task-header">
-                        <strong>${escapeHtml(task.title)}</strong>
-                        <span>${task.status}</span>
-                    </div>
-                    <div>${escapeHtml(task.description || '')}</div>
-                    <div class="task-actions">
-                        <button onclick="editTask(${task.id})">Edit</button>
-                        <button onclick="deleteTask(${task.id})">Delete</button>
-                    </div>
-                `;
-                ul.appendChild(li);
+        const ul = document.getElementById('tasks');
+        ul.innerHTML = '';
+        tasks.forEach(task => {
+            const li = document.createElement('li');
+            li.className = 'task';
+            li.innerHTML = `
+                <div class="task-header">
+                    <strong>${escapeHtml(task.title)}</strong>
+                    <span>ID: ${task.id}</span>
+                </div>
+                <div>${escapeHtml(task.description || '')}</div>
+                <div class="task-status">
+                    <label>Status:
+                        <select data-task-id="${task.id}" class="status-select">
+                            <option value="pending" ${task.status === 'pending' ? 'selected' : ''}>Pending</option>
+                            <option value="in_progress" ${task.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                            <option value="completed" ${task.status === 'completed' ? 'selected' : ''}>Completed</option>
+                        </select>
+                    </label>
+                    <button class="update-status-btn" data-task-id="${task.id}">Update Status</button>
+                </div>
+                <div class="task-actions">
+                    <button onclick="editTask(${task.id})">Edit Title</button>
+                    <button onclick="deleteTask(${task.id})">Delete</button>
+                </div>
+            `;
+            ul.appendChild(li);
+        });
+
+        // Добавляем обработчики на кнопки обновления статуса
+        document.querySelectorAll('.update-status-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const taskId = e.target.dataset.taskId;
+                const select = document.querySelector(`.status-select[data-task-id="${taskId}"]`);
+                const newStatus = select.value;
+                await updateStatus(taskId, newStatus);
             });
+        });
+    }
+
+    async function updateStatus(id, status) {
+        const res = await fetch(API_BASE + '/tasks/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+
+        if (res.ok) {
+            loadTasks(); // перезагрузить список
+        } else {
+            const error = await res.json();
+            alert('Error updating status: ' + (error.errors?.status || 'Unknown error'));
         }
+    }
 
         // Защита от XSS
         function escapeHtml(text) {
@@ -114,6 +149,25 @@
 
         // Редактирование (упрощённо - через prompt, для демонстрации)
         async function editTask(id) {
+            const newTitle = prompt('Enter new title (leave empty to keep current)');
+            if (newTitle !== null) {
+                const data = {};
+                if (newTitle.trim() !== '') data.title = newTitle.trim();
+
+                const res = await fetch(API_BASE + '/tasks/' + id, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (res.ok) {
+                    loadTasks();
+                } else {
+                    const error = await res.json();
+                    alert(error.errors?.title || 'Error updating task');
+                }
+            }
+        }async function editTask(id) {
             const newTitle = prompt('Enter new title (leave empty to keep current)');
             if (newTitle !== null) {
                 const data = {};
